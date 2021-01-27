@@ -6,7 +6,19 @@ The backend service is dead, and uploads from the app fail, which means any pend
 trapped in their weird ".ARZ" file format, unless I can reconstruct them from the files pulled off
 the phone.
 
-.ARZ is a zip container, and contains two files:
+This is all based on analyzing the data found in a trace pulled off my phone. After I recorded a
+a nice day skiing I was really unhappy to find out the service had been turned off, and I had no
+way to turn the track into a GPX file or anything useful. I haven't reverse-engineered the Android
+app yet, but maybe that'll be a future step. Let's see how far intuition gets me first.
+
+Anyway:
+
+## ARZ files
+
+You can grab the traces from your phone by going to
+`Android/data/com.alpinereplay.android/files/outbox` and looking for `.arz` files.
+
+.ARZ is a zip container, and internally contains two files:
     `data-YYYY-MM-DD-hh-mm-ss.gps`: GPS coordinates, elevation, speed.
     `data-YYYY-MM-DD-hh-mm-ss.acc`: accelerometer data? Haven't figured this one out yet.
 
@@ -31,8 +43,8 @@ The date/time records are super redundant.
 
 ### "D" record fields:
 1. time delta in milliseconds from the last "H"
-2. ?
-3. ?
+2. something to do with latitude??
+3. something to do with longitude??
 4. change in elevation since the last "H", in millimeters
 5. current speed in meters / sec
 6. heading in degrees? not sure.
