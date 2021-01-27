@@ -44,6 +44,7 @@ fn main() -> Result<()> {
         let mut gps = None;
         let mut acc = None;
         for path in z.file_names() {
+            println!("found file {}", path);
             if path.ends_with(".gps") {
                 gps = Some(path);
             } else if path.ends_with(".acc") {
