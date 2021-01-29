@@ -3,6 +3,8 @@ use chrono::prelude::*;
 use std::fs::File;
 use std::io::BufRead;
 
+mod gpx;
+
 trait OptionExt<'a, T: ?Sized> {
     fn named(self, name: &str) -> Result<&'a T>;
 }
@@ -27,10 +29,10 @@ enum GpsRecord {
         // also has a local timestamp in millis, and string representation of local and UTC times
     },
     Delta {
-        millis: u64,
-        f2: i64,
-        f3: i64,
-        ele_change: f64, // meters change since last Coords record
+        duration: chrono::Duration,
+        lat: f64, // latitude change since last Coords record
+        lon: f64, // longitude change since last Coords record
+        ele: f64, // meters change since last Coords record
         speed: f64, // meters per second
         heading: f64, // degrees
     },
@@ -40,7 +42,7 @@ fn main() -> Result<()> {
     let path = std::env::args().nth(1).expect("need a file path");
     let file = File::open(path).context("failed to open file")?;
     let mut z = zip::ZipArchive::new(file).context("failed to read zip file")?;
-    let (gps_path, acc_path) = {
+    let (gps_path, _acc_path) = {
         let mut gps = None;
         let mut acc = None;
         for path in z.file_names() {
@@ -104,25 +106,24 @@ fn main() -> Result<()> {
                 }
             }
             "D" => {
-                let millis = parse!("milliseconds");
-                let f2 = parse!("field 2");
-                let f3 = parse!("field 3");
-                let ele_change_mm: i64 = parse!("elevation change");
+                let millis: i64 = parse!("milliseconds");
+                let lat_change_microdeg: i64 = parse!("latitude change");
+                let lon_change_microdeg: i64 = parse!("longitude change");
+                let ele_change_dm: i64 = parse!("elevation change");
                 let speed = parse!("speed");
                 let heading = parse!("heading");
 
                 GpsRecord::Delta {
-                    millis,
-                    f2,
-                    f3,
-                    ele_change: ele_change_mm as f64 / 100.,
+                    duration: chrono::Duration::milliseconds(millis),
+                    lat: lat_change_microdeg as f64 / 1_000_000.,
+                    lon: lon_change_microdeg as f64 / 1_000_000.,
+                    ele: ele_change_dm as f64 / 10.,
                     speed,
                     heading,
                 }
             }
             _ => bail!("unrecognized tag {}", tag),
         };
-        println!("{:?}", record);
         records.push(record);
     }
     let max_speed = records
@@ -133,6 +134,42 @@ fn main() -> Result<()> {
         })
         .max_by(|a, b| if a > b { std::cmp::Ordering::Greater } else { std::cmp::Ordering::Less })
         .unwrap();
+
+    println!("read {} records", records.len());
     println!("max speed: {} m/s, {:.1} MPH", max_speed, max_speed * 2.2369363);
+
+    let mut points = vec![];
+    let mut last_h = None;
+    for rec in &records {
+        match rec {
+            GpsRecord::Coords { timestamp, lat, lon, ele } => {
+                last_h = Some(gpx::Point {
+                    time: *timestamp,
+                    lat: *lat,
+                    lon: *lon,
+                    ele: *ele,
+                    speed: 0., // filled in by Delta records
+                    course: 0., // filled in by Delta records
+                });
+            }
+            GpsRecord::Delta { duration, lat, lon, ele, speed, heading } => {
+                let mut point = last_h.clone().unwrap();
+                point.time = point.time + *duration;
+                point.lat += lat;
+                point.lon += lon;
+                point.ele += ele;
+                point.speed = *speed;
+                point.course = *heading;
+                points.push(point);
+            }
+            _ => (),
+        }
+    }
+
+    println!("writing to out.gpx");
+    gpx::write_gpx(
+        File::create("out.gpx")?,
+        &[&points[..]])?;
+
     Ok(())
 }

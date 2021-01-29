@@ -19,7 +19,7 @@ You can grab the traces from your phone by going to
 `Android/data/com.alpinereplay.android/files/outbox` and looking for `.arz` files.
 
 .ARZ is a zip container, and internally contains two files:
-    `data-YYYY-MM-DD-hh-mm-ss.gps`: GPS coordinates, elevation, speed.
+    `data-YYYY-MM-DD-hh-mm-ss.gps`: GPS coordinates, elevation, speed, heading.
     `data-YYYY-MM-DD-hh-mm-ss.acc`: accelerometer data? Haven't figured this one out yet.
 
 These files are basically CSV files, each line is a different type of record denoted by the first
@@ -42,12 +42,12 @@ between them.
 The date/time records are super redundant.
 
 ### "D" record fields:
-1. time delta in milliseconds from the last "H"
-2. something to do with latitude??
-3. something to do with longitude??
-4. change in elevation since the last "H", in millimeters
+1. time since the last "H", in milliseconds
+2. change in latitude since the last "H", in microdegrees
+3. change in longitude since the last "H", in microdegrees
+4. change in elevation since the last "H", in decimeters
 5. current speed in meters / sec
-6. heading in degrees? not sure.
+6. current heading in degrees
 
 ## ACC files
 These have the same header records (except "A" is omitted), then "H" records (which are
